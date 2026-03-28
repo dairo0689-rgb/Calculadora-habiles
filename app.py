@@ -1,67 +1,68 @@
 import streamlit as st
 
-# Configuración de página
-st.set_page_config(page_title="Calculadora de Sueldo Pro", page_icon="💰")
+# Configuración optimizada para visualización en iPad
+st.set_page_config(page_title="Calculadora de Nómina Directa", layout="centered")
 
-st.title("💸 Calculadora de Nómina Editable")
-st.markdown("Introduce los valores manualmente para calcular el sueldo neto.")
+# Estilo personalizado para botones y métricas
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_style=True)
 
-# --- SECCIÓN DE ENTRADA DE DATOS ---
-with st.container():
-    st.subheader("📌 Datos Básicos")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        sueldo_base = st.number_input("Sueldo Base ($)", min_value=0.0, value=1300000.0, step=10000.0)
-        dias_trabajados = st.number_input("Días Trabajados", min_value=0, max_value=30, value=30)
-    
-    with col2:
-        auxilio_transporte = st.number_input("Auxilio de Transporte ($)", min_value=0.0, value=162000.0)
-        otros_bonos = st.number_input("Otros Bonos/Comisiones ($)", min_value=0.0, value=0.0)
+st.title("📊 Calculadora de Sueldo Automática")
+st.info("Ajusta los valores abajo para ver el cálculo neto al instante.")
+
+# --- ENTRADA DE DATOS (CAMPOS EDITABLES) ---
+st.subheader("📝 Parámetros de la Nómina")
+
+# Usamos columnas para aprovechar el ancho de la pantalla del iPad
+col1, col2 = st.columns(2)
+
+with col1:
+    sueldo_base = st.number_input("Sueldo Base Mensual ($)", value=1300000, step=50000)
+    dias_trabajados = st.slider("Días Laborados", 0, 30, 30)
+    otros_ingresos = st.number_input("Bonificaciones / Otros ($)", value=0, step=10000)
+
+with col2:
+    auxilio_transporte = st.number_input("Auxilio de Transporte ($)", value=162000)
+    pct_salud = st.number_input("Descuento Salud (%)", value=4.0, step=0.5)
+    pct_pension = st.number_input("Descuento Pensión (%)", value=4.0, step=0.5)
 
 st.divider()
 
-# --- SECCIÓN DE DEDUCCIONES ---
-with st.container():
-    st.subheader("📉 Deducciones de Ley")
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        pct_salud = st.slider("Salud (%)", 0.0, 10.0, 4.0)
-    with c2:
-        pct_pension = st.slider("Pensión (%)", 0.0, 10.0, 4.0)
+# --- LÓGICA DE CÁLCULO (Síncrona) ---
+# Cálculo del básico según días
+sueldo_proporcional = (sueldo_base / 30) * dias_trabajados
 
-# --- CÁLCULOS LÓGICOS ---
-# Proporcional del sueldo por días trabajados
-sueldo_devengado = (sueldo_base / 30) * dias_trabajados
+# Base para descuentos (Sueldo proporcional + bonos)
+ibc = sueldo_proporcional + otros_ingresos
 
-# Base para seguridad social (Sueldo devengado + bonos, usualmente sin auxilio transporte)
-base_seguridad_social = sueldo_devengado + otros_bonos
-
-descuento_salud = base_seguridad_social * (pct_salud / 100)
-descuento_pension = base_seguridad_social * (pct_pension / 100)
-
+descuento_salud = ibc * (pct_salud / 100)
+descuento_pension = ibc * (pct_pension / 100)
 total_deducciones = descuento_salud + descuento_pension
-sueldo_neto = sueldo_devengado + auxilio_transporte + otros_bonos - total_deducciones
 
-# --- MOSTRAR RESULTADOS ---
-st.divider()
-st.subheader("📋 Resumen de Pago")
+# Resultado Final
+neto_pagar = sueldo_proporcional + auxilio_transporte + otros_ingresos - total_deducciones
 
-res1, res2, res3 = st.columns(3)
-res1.metric("Total Devengado", f"${(sueldo_devengado + auxilio_transporte + otros_bonos):,.0f}")
-res2.metric("Total Deducciones", f"-${total_deducciones:,.0f}", delta_color="inverse")
-res3.metric("NETO A RECIBIR", f"${sueldo_neto:,.0f}")
+# --- VISUALIZACIÓN DE RESULTADOS ---
+st.subheader("💰 Resumen del Pago")
 
-# Tabla detallada para claridad
-datos_tabla = {
-    "Concepto": ["Sueldo por días", "Auxilio Transporte", "Bonificaciones", "Salud", "Pensión"],
-    "Ingresos": [sueldo_devengado, auxilio_transporte, otros_bonos, 0, 0],
-    "Egresos": [0, 0, 0, descuento_salud, descuento_pension]
-}
+# Métricas grandes y claras
+m1, m2, m3 = st.columns(3)
+m1.metric("Ingresos Totales", f"${(sueldo_proporcional + auxilio_transporte + otros_ingresos):,.0f}")
+m2.metric("Deducciones", f"-${total_deducciones:,.0f}", delta_color="inverse")
+m3.metric("NETO A PAGAR", f"${neto_pagar:,.0f}")
 
-st.table(datos_tabla)
+# Desglose detallado
+with st.expander("Ver detalle de la liquidación"):
+    st.write(f"**Sueldo por {dias_trabajados} días:** ${sueldo_proportional:,.0f}")
+    st.write(f"**Auxilio de Transporte:** ${auxilio_transporte:,.0f}")
+    st.write(f"**Descuento Salud ({pct_salud}%):** -${descuento_salud:,.0f}")
+    st.write(f"**Descuento Pensión ({pct_pension}%):** -${descuento_pension:,.0f}")
 
-if st.button("✅ Confirmar y Guardar"):
+# Botón para simular guardado o impresión
+if st.button("💾 Generar Comprobante"):
     st.balloons()
-    st.success(f"Cálculo finalizado: El neto es ${sueldo_neto:,.0f}")
+    st.success("Cálculo listo para registro.")
