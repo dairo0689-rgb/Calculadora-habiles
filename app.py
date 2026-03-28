@@ -1,43 +1,67 @@
 import streamlit as st
-from datetime import datetime, timedelta
+import pandas as pd
 
-# Configuración de la aplicación
-st.set_page_config(page_title="Calculadora Días Hábiles CO", page_icon="📅")
+st.set_page_config(page_title="Calculadora de Nómina", layout="centered")
 
-st.title("🇨🇴 Calculadora de Días Hábiles")
-st.write("Resta 30 días hábiles a una fecha (Colombia 2026).")
+st.title("💰 Procesador de Sueldos y Nómina")
+st.write("Sube el archivo `Calculadora Sueldo.xlsx` para calcular el neto a pagar.")
 
-# Festivos Colombia 2026 (Ley Emiliani aplicada)
-festivos_2026 = [
-    "2026-01-01", "2026-01-12", "2026-03-23", "2026-04-02", "2026-04-03",
-    "2026-05-01", "2026-05-18", "2026-06-08", "2026-06-15", "2026-06-29",
-    "2026-07-20", "2026-08-07", "2026-08-17", "2026-10-12", "2026-11-02",
-    "2026-11-16", "2026-12-08", "2026-12-25"
-]
-# Convertimos a formato de fecha de Python
-festivos_dates = [datetime.strptime(f, "%Y-%m-%d").date() for f in festivos_2026]
+uploaded_file = st.file_uploader("Cargar archivo Excel", type=["csv", "xlsx"])
 
-def calcular_resta_habiles(fecha_inicio, dias_a_restar):
-    fecha_actual = fecha_inicio
-    contador = 0
-    while contador < dias_a_restar:
-        fecha_actual -= timedelta(days=1)
-        # weekday() < 5 significa Lunes a Viernes (0,1,2,3,4)
-        if fecha_actual.weekday() < 5 and fecha_actual not in festivos_dates:
-            contador += 1
-    return fecha_actual
+if uploaded_file:
+    # Leemos el archivo. Si es CSV usamos read_csv, si es Excel read_excel
+    try:
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
-# Interfaz de usuario para iPad
-fecha_ref = st.date_input("Selecciona la fecha de inicio:", value=datetime.now().date())
+        # --- EXTRACCIÓN DE DATOS SEGÚN TU EXCEL ---
+        # Basado en la estructura del archivo subido:
+        # Columna 0 suele ser la etiqueta, Columna 1 el valor.
+        
+        sueldo_base = df.iloc[0, 1]  # Fila 1, Columna B
+        dias_trabajados = df.iloc[1, 1] 
+        auxilio_transporte = df.iloc[2, 1]
+        
+        st.subheader("Datos de Entrada")
+        col1, col2 = st.columns(2)
+        col1.metric("Sueldo Base", f"${sueldo_base:,.0f}")
+        col2.metric("Días", int(dias_trabajados))
 
-if st.button("Calcular -30 días hábiles"):
-    resultado = calcular_resta_habiles(fecha_ref, 30)
-    
-    st.divider()
-    st.success("Resultado del cálculo:")
-    st.header(f"📅 {resultado.strftime('%d / %m / %Y')}")
-    st.info(f"Día resultante: {resultado.strftime('%A')}")
+        if st.button("🧮 Calcular Nómina"):
+            # --- FÓRMULAS INTEGRADAS ---
+            # 1. Proporcional de sueldo
+            sueldo_devengado = (sueldo_base / 30) * dias_trabajados
+            
+            # 2. Descuentos de Ley (Ejemplo: 4% Salud, 4% Pensión)
+            salud = sueldo_devengado * 0.04
+            pension = sueldo_devengado * 0.04
+            
+            # 3. Total Neto
+            total_neto = sueldo_devengado + auxilio_transporte - (salud + pension)
 
-st.caption("Nota: El cálculo omite sábados, domingos y los festivos oficiales de Colombia.")
+            # --- MOSTRAR RESULTADOS ---
+            st.divider()
+            st.success(f"### Neto a Pagar: ${total_neto:,.0f}")
+            
+            resultados = {
+                "Concepto": ["Sueldo Devengado", "Auxilio Transporte", "Salud (4%)", "Pensión (4%)", "TOTAL NETO"],
+                "Valor": [sueldo_devengado, auxilio_transporte, -salud, -pension, total_neto]
+            }
+            
+            df_res = pd.DataFrame(resultados)
+            st.table(df_res.style.format({"Valor": "${:,.0f}"}))
+
+            # Opción para descargar el resultado en el iPad
+            csv_data = df_res.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Descargar Reporte", csv_data, "nomina_calculada.csv", "text/csv")
+
+    except Exception as e:
+        st.error(f"Error al leer las celdas: Asegúrate de que el formato sea el correcto. {e}")
+
+else:
+    st.info("💡 Consejo: Asegúrate de que el nombre de las filas coincida con el orden de tu Excel original.")
+
 
 
