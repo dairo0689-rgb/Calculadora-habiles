@@ -63,5 +63,3 @@ if uploaded_file:
 else:
     st.info("💡 Consejo: Asegúrate de que el nombre de las filas coincida con el orden de tu Excel original.")
 
-
-
