@@ -1,44 +1,23 @@
 import streamlit as st
 
-# Configuración de la aplicación
-st.set_page_config(page_title="Calculadora Manual Pro", layout="centered")
+# Eliminamos cualquier rastro de subida de archivos
+st.set_page_config(page_title="Calculadora Manual", layout="centered")
 
-st.title("💰 Calculadora de Nómina Directa")
-st.write("Introduce los valores manualmente. Esta app no requiere archivos externos.")
+st.title("✅ Calculadora 100% Manual")
+st.write("Esta versión NO usa Excel. Introduce los datos abajo:")
 
-# --- FORMULARIO DE DATOS ---
-with st.form("calculadora_form"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        sueldo_base = st.number_input("Sueldo Base Mensual", value=1300000)
-        dias = st.slider("Días Trabajados", 1, 30, 30)
-        auxilio = st.number_input("Auxilio Transporte", value=162000)
-        
-    with col2:
-        bonos = st.number_input("Otros Ingresos", value=0)
-        salud_pct = st.number_input("% Salud", value=4.0)
-        pension_pct = st.number_input("% Pensión", value=4.0)
-    
-    # Botón para ejecutar el cálculo
-    calcular = st.form_submit_button("Calcular Ahora")
+# Entradas manuales
+sueldo = st.number_input("Sueldo Base ($)", value=1300000)
+transporte = st.number_input("Auxilio Transporte ($)", value=162000)
+dias = st.slider("Días Trabajados", 1, 30, 30)
 
-# --- LÓGICA DE CÁLCULO ---
-sueldo_dia = sueldo_base / 30
-devengado = sueldo_dia * dias
-base_seguridad_social = devengado + bonos
+# Cálculos directos
+pago_dias = (sueldo / 30) * dias
+total = pago_dias + transporte
 
-desc_salud = base_seguridad_social * (salud_pct / 100)
-desc_pension = base_seguridad_social * (pension_pct / 100)
+st.divider()
 
-neto = devengado + auxilio + bonos - (desc_salud + desc_pension)
+# Resultados grandes para ver en iPad
+st.metric("PAGO TOTAL NETO", f"${total:,.0f}")
 
-# --- MOSTRAR RESULTADOS ---
-if calcular or dias:
-    st.divider()
-    c1, c2 = st.columns(2)
-    c1.metric("TOTAL INGRESOS", f"${(devengado + auxilio + bonos):,.0f}")
-    c2.metric("NETO A RECIBIR", f"${neto:,.0f}")
-    
-    st.info(f"Cálculo basado en {dias} días laborados.")
-
+st.write(f"Detalle: ${pago_dias:,.0f} de sueldo + ${transporte:,.0f} de transporte.")
