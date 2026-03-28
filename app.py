@@ -1,65 +1,67 @@
 import streamlit as st
-import pandas as pd
 
-st.set_page_config(page_title="Calculadora de Nómina", layout="centered")
+# Configuración de página
+st.set_page_config(page_title="Calculadora de Sueldo Pro", page_icon="💰")
 
-st.title("💰 Procesador de Sueldos y Nómina")
-st.write("Sube el archivo `Calculadora Sueldo.xlsx` para calcular el neto a pagar.")
+st.title("💸 Calculadora de Nómina Editable")
+st.markdown("Introduce los valores manualmente para calcular el sueldo neto.")
 
-uploaded_file = st.file_uploader("Cargar archivo Excel", type=["csv", "xlsx"])
+# --- SECCIÓN DE ENTRADA DE DATOS ---
+with st.container():
+    st.subheader("📌 Datos Básicos")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        sueldo_base = st.number_input("Sueldo Base ($)", min_value=0.0, value=1300000.0, step=10000.0)
+        dias_trabajados = st.number_input("Días Trabajados", min_value=0, max_value=30, value=30)
+    
+    with col2:
+        auxilio_transporte = st.number_input("Auxilio de Transporte ($)", min_value=0.0, value=162000.0)
+        otros_bonos = st.number_input("Otros Bonos/Comisiones ($)", min_value=0.0, value=0.0)
 
-if uploaded_file:
-    # Leemos el archivo. Si es CSV usamos read_csv, si es Excel read_excel
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+st.divider()
 
-        # --- EXTRACCIÓN DE DATOS SEGÚN TU EXCEL ---
-        # Basado en la estructura del archivo subido:
-        # Columna 0 suele ser la etiqueta, Columna 1 el valor.
-        
-        sueldo_base = df.iloc[0, 1]  # Fila 1, Columna B
-        dias_trabajados = df.iloc[1, 1] 
-        auxilio_transporte = df.iloc[2, 1]
-        
-        st.subheader("Datos de Entrada")
-        col1, col2 = st.columns(2)
-        col1.metric("Sueldo Base", f"${sueldo_base:,.0f}")
-        col2.metric("Días", int(dias_trabajados))
+# --- SECCIÓN DE DEDUCCIONES ---
+with st.container():
+    st.subheader("📉 Deducciones de Ley")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        pct_salud = st.slider("Salud (%)", 0.0, 10.0, 4.0)
+    with c2:
+        pct_pension = st.slider("Pensión (%)", 0.0, 10.0, 4.0)
 
-        if st.button("🧮 Calcular Nómina"):
-            # --- FÓRMULAS INTEGRADAS ---
-            # 1. Proporcional de sueldo
-            sueldo_devengado = (sueldo_base / 30) * dias_trabajados
-            
-            # 2. Descuentos de Ley (Ejemplo: 4% Salud, 4% Pensión)
-            salud = sueldo_devengado * 0.04
-            pension = sueldo_devengado * 0.04
-            
-            # 3. Total Neto
-            total_neto = sueldo_devengado + auxilio_transporte - (salud + pension)
+# --- CÁLCULOS LÓGICOS ---
+# Proporcional del sueldo por días trabajados
+sueldo_devengado = (sueldo_base / 30) * dias_trabajados
 
-            # --- MOSTRAR RESULTADOS ---
-            st.divider()
-            st.success(f"### Neto a Pagar: ${total_neto:,.0f}")
-            
-            resultados = {
-                "Concepto": ["Sueldo Devengado", "Auxilio Transporte", "Salud (4%)", "Pensión (4%)", "TOTAL NETO"],
-                "Valor": [sueldo_devengado, auxilio_transporte, -salud, -pension, total_neto]
-            }
-            
-            df_res = pd.DataFrame(resultados)
-            st.table(df_res.style.format({"Valor": "${:,.0f}"}))
+# Base para seguridad social (Sueldo devengado + bonos, usualmente sin auxilio transporte)
+base_seguridad_social = sueldo_devengado + otros_bonos
 
-            # Opción para descargar el resultado en el iPad
-            csv_data = df_res.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Descargar Reporte", csv_data, "nomina_calculada.csv", "text/csv")
+descuento_salud = base_seguridad_social * (pct_salud / 100)
+descuento_pension = base_seguridad_social * (pct_pension / 100)
 
-    except Exception as e:
-        st.error(f"Error al leer las celdas: Asegúrate de que el formato sea el correcto. {e}")
+total_deducciones = descuento_salud + descuento_pension
+sueldo_neto = sueldo_devengado + auxilio_transporte + otros_bonos - total_deducciones
 
-else:
-    st.info("💡 Consejo: Asegúrate de que el nombre de las filas coincida con el orden de tu Excel original.")
+# --- MOSTRAR RESULTADOS ---
+st.divider()
+st.subheader("📋 Resumen de Pago")
 
+res1, res2, res3 = st.columns(3)
+res1.metric("Total Devengado", f"${(sueldo_devengado + auxilio_transporte + otros_bonos):,.0f}")
+res2.metric("Total Deducciones", f"-${total_deducciones:,.0f}", delta_color="inverse")
+res3.metric("NETO A RECIBIR", f"${sueldo_neto:,.0f}")
+
+# Tabla detallada para claridad
+datos_tabla = {
+    "Concepto": ["Sueldo por días", "Auxilio Transporte", "Bonificaciones", "Salud", "Pensión"],
+    "Ingresos": [sueldo_devengado, auxilio_transporte, otros_bonos, 0, 0],
+    "Egresos": [0, 0, 0, descuento_salud, descuento_pension]
+}
+
+st.table(datos_tabla)
+
+if st.button("✅ Confirmar y Guardar"):
+    st.balloons()
+    st.success(f"Cálculo finalizado: El neto es ${sueldo_neto:,.0f}")
